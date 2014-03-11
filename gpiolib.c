@@ -2,7 +2,9 @@
  * gpiolib.c - Example library to manage the GPIO lines using
  *             the sysfs method
  *
- * Copyright (c) 2013 Sergio Tanzilli
+ * It works with Kernel >=3.5
+ *
+ * Copyright (c) 2014 Sergio Tanzilli
  * All rights reserved.
  *
  * http://www.acmesystems.it
@@ -44,6 +46,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+int gpioid2sysname(int gpioid,char *sysname) {
+	if (gpioid>=0 && gpioid<32) {
+		sprintf(sysname,"pioA%d",gpioid);
+		return 1;
+	}
+	if (gpioid>=32 && gpioid<64) {
+		sprintf(sysname,"pioB%d",gpioid-32);
+		return 1;
+	}
+	if (gpioid>=64 && gpioid<96) {
+		sprintf(sysname,"pioC%d",gpioid-64);
+		return 1;
+	}
+	return 0;
+}
  
 int gpioexport(int gpioid) {
 	FILE *filestream;
@@ -60,13 +78,16 @@ int gpioexport(int gpioid) {
 int gpiosetdir(int gpioid,int mode) {
 	FILE *filestream;
 	char filename[50];
+	char gpioname[10];
+	
+	gpioid2sysname(gpioid,gpioname);
  
-	sprintf(filename,"/sys/class/gpio/gpio%d/direction",gpioid);
+	sprintf(filename,"/sys/class/gpio/%s/direction",gpioname);
 	if ((filestream=fopen(filename,"w"))==NULL) {
 		printf("Error on direction setup\n");
 		return -1;
 	}	
-	if (mode==GPIO_IN) {
+	if (mode==1) {
 		fprintf(filestream,"in");
 	} else {
 		fprintf(filestream,"out");
@@ -79,8 +100,11 @@ int gpiogetbits(int gpioid) {
 	FILE *filestream;
 	char filename[50];
 	char retchar;
+	char gpioname[10];
+	
+	gpioid2sysname(gpioid,gpioname);
  
-	sprintf(filename,"/sys/class/gpio/gpio%d/value",gpioid);
+	sprintf(filename,"/sys/class/gpio/%s/value",gpioname);
 	if ((filestream=fopen(filename,"r"))==NULL) {
 		printf("Error on gpiogetbits %d\n",gpioid);
 		return -1;
@@ -94,8 +118,11 @@ int gpiogetbits(int gpioid) {
 int gpiosetbits(int gpioid) {
 	FILE *filestream;
 	char filename[50];
- 
-	sprintf(filename,"/sys/class/gpio/gpio%d/value",gpioid);
+	char gpioname[10];
+	
+	gpioid2sysname(gpioid,gpioname);
+  
+	sprintf(filename,"/sys/class/gpio/%s/value",gpioname);
 	if ((filestream=fopen(filename,"w"))==NULL) {
 		printf("Error on setbits %d\n",gpioid);
 		return -1;
@@ -108,8 +135,11 @@ int gpiosetbits(int gpioid) {
 int gpioclearbits(int gpioid) {
 	FILE *filestream;
 	char filename[50];
+ 	char gpioname[10];
+	
+	gpioid2sysname(gpioid,gpioname);
  
-	sprintf(filename,"/sys/class/gpio/gpio%d/value",gpioid);
+	sprintf(filename,"/sys/class/gpio/%s/value",gpioname);
 	if ((filestream=fopen(filename,"w"))==NULL) {
 		printf("Error on clearbits %d\n",gpioid);
 		return -1;
@@ -119,3 +149,16 @@ int gpioclearbits(int gpioid) {
 	return 0;
 }
 
+#define GPIO_IN  1
+#define GPIO_OUT 0
+
+void main(void) {
+	gpioexport(80);
+	gpiosetdir(80,GPIO_OUT);
+	for (;;) {
+		gpiosetbits(80);
+		usleep(1000000);
+		gpioclearbits(80);
+		usleep(1000000);
+	}
+}
